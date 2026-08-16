@@ -294,22 +294,6 @@ h1 {
   margin-bottom: 0.75rem;
 }
 
-.upload-form input[type="url"] {
-  flex: 1 1 16rem;
-  min-width: 0;
-  border: 1px solid var(--line);
-  background: rgba(20, 17, 14, 0.65);
-  color: var(--ink);
-  padding: 0.85rem 1rem;
-  border-radius: 999px;
-  font: inherit;
-  outline: none;
-}
-
-.upload-form input[type="url"]:focus {
-  border-color: var(--amber);
-}
-
 .file-btn {
   display: inline-flex;
   align-items: center;

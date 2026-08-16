@@ -110,23 +110,16 @@ function renderLibrary() {
       <section class="upload-panel">
         <div class="section-head">
           <h2>Upload a playlist</h2>
-          <p>Paste a Spotify link, or upload a .txt / .csv / .m3u / .json list</p>
+          <p>Drop a .txt, .csv, .m3u, or .json list of tracks</p>
         </div>
-        <form class="upload-form" id="upload-form">
-          <label class="sr-only" for="playlist-url">Spotify playlist URL</label>
-          <input
-            id="playlist-url"
-            type="url"
-            placeholder="https://open.spotify.com/playlist/…"
-          />
-          <button type="submit" class="btn">Load link</button>
-          <label class="file-btn btn ghost">
+        <div class="upload-form">
+          <label class="file-btn btn">
             Choose file
             <input id="playlist-file" type="file" accept=".txt,.csv,.m3u,.m3u8,.json,text/plain,text/csv,application/json" hidden />
           </label>
-        </form>
+        </div>
         <p class="hint" id="upload-status">
-          File format: one track per line like <code>Song Title - Artist</code>, or CSV columns title,artist.
+          One track per line like <code>Song Title - Artist</code>, or CSV columns title,artist.
         </p>
       </section>
       <section>
@@ -200,36 +193,11 @@ function renderLibrary() {
 }
 
 function bindUpload() {
-  const form = document.getElementById("upload-form");
   const status = document.getElementById("upload-status");
   const fileInput = document.getElementById("playlist-file");
-  if (!form) return;
+  if (!fileInput) return;
 
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const url = document.getElementById("playlist-url").value.trim();
-    const id = S.parsePlaylistId(url);
-    if (!id) {
-      status.textContent = "Paste a valid Spotify playlist link or URI.";
-      status.classList.add("error");
-      return;
-    }
-    status.classList.remove("error");
-    status.textContent = "Loading playlist from Spotify…";
-    try {
-      const meta = await S.getPlaylist(id);
-      startGame({
-        kind: "playlist",
-        id,
-        name: meta.name || "Uploaded playlist",
-      });
-    } catch (err) {
-      status.classList.add("error");
-      status.textContent = err.message;
-    }
-  });
-
-  fileInput?.addEventListener("change", async () => {
+  fileInput.addEventListener("change", async () => {
     const file = fileInput.files?.[0];
     if (!file) return;
     status.classList.remove("error");
