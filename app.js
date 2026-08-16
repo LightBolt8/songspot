@@ -109,17 +109,24 @@ function renderLibrary() {
       </section>
       <section class="upload-panel">
         <div class="section-head">
-          <h2>Upload a playlist</h2>
-          <p>Drop a .txt, .csv, .m3u, or .json list of tracks</p>
+          <h2>Upload a folder</h2>
+          <p>Pick a folder of MP3s (or other audio). Plays locally — no Premium needed.</p>
         </div>
         <div class="upload-form">
           <label class="file-btn btn">
-            Choose file
-            <input id="playlist-file" type="file" accept=".txt,.csv,.m3u,.m3u8,.json,text/plain,text/csv,application/json" hidden />
+            Choose folder
+            <input
+              id="playlist-folder"
+              type="file"
+              webkitdirectory
+              directory
+              multiple
+              hidden
+            />
           </label>
         </div>
         <p class="hint" id="upload-status">
-          One track per line like <code>Song Title - Artist</code>, or CSV columns title,artist.
+          Names like <code>Artist - Song.mp3</code> work best for guessing.
         </p>
       </section>
       <section>
@@ -194,129 +201,112 @@ function renderLibrary() {
 
 function bindUpload() {
   const status = document.getElementById("upload-status");
-  const fileInput = document.getElementById("playlist-file");
-  if (!fileInput) return;
+  const folderInput = document.getElementById("playlist-folder");
+  if (!folderInput) return;
 
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files?.[0];
-    if (!file) return;
+  folderInput.addEventListener("change", () => {
+    const files = [...(folderInput.files || [])];
+    folderInput.value = "";
     status.classList.remove("error");
-    status.textContent = `Reading ${file.name}…`;
     try {
-      const text = await file.text();
-      const lines = parsePlaylistFile(text, file.name);
-      if (!lines.length) {
-        throw new Error("No tracks found in that file.");
+      const audioFiles = files.filter(isAudioFile);
+      if (!audioFiles.length) {
+        throw new Error("No audio files in that folder (try mp3, m4a, wav, flac, ogg).");
       }
-      status.textContent = `Matching ${Math.min(lines.length, 100)} tracks on Spotify…`;
-      const market = state.me?.country || "US";
-      const tracks = await S.resolveUploadedLines(lines, market, (done, total, q) => {
-        status.textContent = `Matching ${done}/${total}: ${q}`;
-      });
-      if (!tracks.length) {
-        throw new Error("Couldn’t match any lines to Spotify tracks.");
-      }
-      status.textContent = `Matched ${tracks.length} tracks. Starting Songless…`;
+      const folderName =
+        audioFiles[0].webkitRelativePath?.split("/")[0] || "Local folder";
+      const tracks = audioFiles.slice(0, 200).map(trackFromAudioFile);
+      status.textContent = `Loaded ${tracks.length} tracks from “${folderName}”. Starting Songless…`;
       startGame({
-        kind: "upload",
-        id: "upload",
-        name: file.name.replace(/\.[^.]+$/, "") || "Uploaded playlist",
+        kind: "local",
+        id: "local",
+        name: folderName,
         tracks,
       });
     } catch (err) {
       status.classList.add("error");
       status.textContent = err.message;
-    } finally {
-      fileInput.value = "";
     }
   });
 }
 
-function parsePlaylistFile(text, filename = "") {
-  const name = filename.toLowerCase();
-  const raw = text.replace(/^\uFEFF/, "").trim();
-  if (!raw) return [];
+const AUDIO_EXT = /\.(mp3|m4a|aac|wav|flac|ogg|opus|webm)$/i;
 
-  if (name.endsWith(".json") || raw.startsWith("{") || raw.startsWith("[")) {
-    try {
-      const data = JSON.parse(raw);
-      const items = Array.isArray(data)
-        ? data
-        : data.tracks || data.items || data.songs || [];
-      return items
-        .map((item) => {
-          if (typeof item === "string") return item;
-          const title = item.name || item.title || item.track || item.song || "";
-          const artist =
-            item.artist ||
-            item.artists ||
-            (Array.isArray(item.artists) ? item.artists.join(", ") : "") ||
-            "";
-          if (title && artist) return `${title} - ${artist}`;
-          return title || artist;
-        })
-        .filter(Boolean);
-    } catch {
-      // fall through to line parsing
-    }
-  }
-
-  const lines = raw.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const out = [];
-
-  for (const line of lines) {
-    if (line.startsWith("#") || line.toLowerCase().startsWith("extinf")) continue;
-    if (/^https?:\/\//i.test(line) || line.startsWith("spotify:")) {
-      // skip bare URLs/URIs in m3u without titles
-      continue;
-    }
-
-    if (line.includes(",") && !line.includes(" - ")) {
-      const parts = splitCsvLine(line);
-      if (parts.length >= 2) {
-        const [a, b] = parts;
-        if (/title|track|song|name/i.test(a) && /artist/i.test(b)) continue;
-        if (/title|track|song|name/i.test(b) && /artist/i.test(a)) continue;
-        out.push(`${a} - ${b}`);
-        continue;
-      }
-    }
-
-    out.push(line.replace(/\t+/g, " - "));
-  }
-  return out;
+function isAudioFile(file) {
+  if (file.type && file.type.startsWith("audio/")) return true;
+  return AUDIO_EXT.test(file.name);
 }
 
-function splitCsvLine(line) {
-  const parts = [];
-  let cur = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      inQuotes = !inQuotes;
-      continue;
-    }
-    if (ch === "," && !inQuotes) {
-      parts.push(cur.trim());
-      cur = "";
-      continue;
-    }
-    cur += ch;
+function trackFromAudioFile(file, index) {
+  const base = file.name.replace(/\.[^.]+$/, "");
+  const cleaned = base.replace(/^\d{1,3}[\s.\-_]+/, "").trim();
+  let artists = "Local file";
+  let name = cleaned || file.name;
+  const parts = cleaned.split(/\s+-\s+/);
+  if (parts.length >= 2) {
+    artists = parts[0].trim();
+    name = parts.slice(1).join(" - ").trim() || name;
   }
-  parts.push(cur.trim());
-  return parts.filter(Boolean);
+  const objectUrl = URL.createObjectURL(file);
+  return {
+    id: `local-${index}-${file.name}-${file.size}`,
+    uri: objectUrl,
+    name,
+    artists,
+    album: file.webkitRelativePath?.split("/")[0] || "Local folder",
+    image: "",
+    objectUrl,
+    local: true,
+    durationMs: 0,
+  };
+}
+
+function revokeLocalTracks(tracks) {
+  for (const t of tracks || []) {
+    if (t.objectUrl) URL.revokeObjectURL(t.objectUrl);
+  }
+}
+
+const localAudio = {
+  el: null,
+  timer: null,
+};
+
+function stopLocalSnippet() {
+  clearTimeout(localAudio.timer);
+  if (localAudio.el) {
+    localAudio.el.pause();
+    localAudio.el.currentTime = 0;
+  }
+}
+
+async function playLocalSnippet(track, durationMs) {
+  stopLocalSnippet();
+  S.stopSnippet();
+  if (!localAudio.el) localAudio.el = new Audio();
+  const audio = localAudio.el;
+  audio.src = track.objectUrl;
+  audio.currentTime = 0;
+  await audio.play();
+  localAudio.timer = setTimeout(() => {
+    audio.pause();
+  }, durationMs);
 }
 
 function bindChrome() {
   app.querySelector("[data-nav='home']")?.addEventListener("click", (e) => {
     e.preventDefault();
+    stopLocalSnippet();
     S.stopSnippet();
+    if (state.game?.pool) revokeLocalTracks(state.game.pool.filter((t) => t.local));
     state.game = null;
     renderLibrary();
   });
   app.querySelector("[data-action='logout']")?.addEventListener("click", () => {
+    stopLocalSnippet();
     S.stopSnippet();
+    if (state.game?.pool) revokeLocalTracks(state.game.pool.filter((t) => t.local));
+    state.game = null;
     S.clearSession();
     state.me = null;
     renderLogin();
@@ -332,7 +322,7 @@ async function startGame(source) {
   try {
     const market = state.me?.country || "US";
     const tracks =
-      source.kind === "upload"
+      source.kind === "local" || source.kind === "upload"
         ? source.tracks || []
         : source.kind === "saved"
           ? state.savedTracks?.length
@@ -512,7 +502,12 @@ async function playCurrentClip() {
   const vinyl = document.getElementById("vinyl");
   if (status) status.textContent = "Starting clip…";
   try {
-    await S.playSnippet(g.secret, ms);
+    if (g.secret.local) {
+      await playLocalSnippet(g.secret, ms);
+    } else {
+      stopLocalSnippet();
+      await S.playSnippet(g.secret, ms);
+    }
     if (vinyl) vinyl.dataset.spinning = "true";
     if (status) status.textContent = `Playing ${(ms / 1000).toFixed(ms < 1000 ? 1 : 0)}s`;
     setTimeout(() => {
@@ -526,6 +521,7 @@ async function playCurrentClip() {
 function submitGuess(track) {
   const g = state.game;
   if (!g || g.over) return;
+  stopLocalSnippet();
   S.stopSnippet();
   if (!track) {
     g.guesses.push({ ok: false, label: "Skipped" });
