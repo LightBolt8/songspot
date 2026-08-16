@@ -288,7 +288,28 @@ const playerState = {
 
 function waitForSdk() {
   if (window.Spotify) return Promise.resolve();
-  return window.__spotifySdkReady || Promise.reject(new Error("Spotify SDK failed to load"));
+
+  if (!window.__spotifySdkReady) {
+    window.__spotifySdkReady = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Spotify player SDK timed out"));
+      }, 12000);
+      window.onSpotifyWebPlaybackSDKReady = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      const script = document.createElement("script");
+      script.src = "https://sdk.scdn.co/spotify-player.js";
+      script.async = true;
+      script.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error("Could not load Spotify player SDK"));
+      };
+      document.head.appendChild(script);
+    });
+  }
+
+  return window.__spotifySdkReady;
 }
 
 async function connectPlayer() {

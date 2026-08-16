@@ -590,40 +590,53 @@ function submitGuess(track) {
 
 async function loadLibrary() {
   app.innerHTML = `<p class="boot">Opening your Spotify library…</p>`;
-  state.me = await S.getMe();
-  const [artists, playlists, saved] = await Promise.all([
-    S.getTopArtists().catch(() => []),
-    S.getPlaylists(),
-    S.getSavedTracks().catch(() => []),
-  ]);
-  state.artists = artists;
-  state.playlists = playlists;
-  state.savedCount = saved.length;
-  state.savedTracks = saved;
-  renderLibrary();
+  try {
+    state.me = await S.getMe();
+    const [artists, playlists, saved] = await Promise.all([
+      S.getTopArtists().catch(() => []),
+      S.getPlaylists().catch(() => []),
+      S.getSavedTracks().catch(() => []),
+    ]);
+    state.artists = artists;
+    state.playlists = playlists;
+    state.savedCount = saved.length;
+    state.savedTracks = saved;
+    renderLibrary();
+  } catch (err) {
+    S.clearSession();
+    renderLogin(err.message || "Could not load your Spotify library.");
+    return;
+  }
+
   if (state.me.product === "premium") {
-    try {
-      state.playerReady = await S.connectPlayer();
-      if (state.view === "home" || !state.game) renderLibrary();
-    } catch {
-      state.playerReady = false;
-      if (!state.game) renderLibrary();
-    }
+    S.connectPlayer()
+      .then((ready) => {
+        state.playerReady = ready;
+        if (!state.game) renderLibrary();
+      })
+      .catch(() => {
+        state.playerReady = false;
+        if (!state.game) renderLibrary();
+      });
   }
 }
 
 async function boot() {
-  const params = new URLSearchParams(location.search);
-  const code = params.get("code");
-  const authError = params.get("error");
-  if (code || authError) {
-    history.replaceState({}, "", S.redirectUri());
-  }
-  if (authError) {
-    renderLogin("Spotify login was cancelled.");
-    return;
-  }
   try {
+    if (!window.SongspotSpotify) {
+      app.innerHTML = `<main class="login"><p class="banner error">App scripts failed to load. Hard-refresh the page.</p></main>`;
+      return;
+    }
+    const params = new URLSearchParams(location.search);
+    const code = params.get("code");
+    const authError = params.get("error");
+    if (code || authError) {
+      history.replaceState({}, "", S.redirectUri());
+    }
+    if (authError) {
+      renderLogin("Spotify login was cancelled.");
+      return;
+    }
     if (code) await S.exchangeCode(code);
     const token = await S.accessToken();
     if (!token || !S.getClientId()) {
@@ -632,8 +645,12 @@ async function boot() {
     }
     await loadLibrary();
   } catch (err) {
-    S.clearSession();
-    renderLogin(err.message);
+    try {
+      S.clearSession();
+    } catch {
+      // ignore
+    }
+    renderLogin(err.message || "Something went wrong starting Songspot.");
   }
 }
 
