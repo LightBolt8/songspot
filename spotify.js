@@ -207,6 +207,8 @@ async function getArtistTopTracks(artistId, market) {
 async function getPlaylist(playlistId) {
   return api(`/playlists/${playlistId}?fields=id,name,images,tracks.total`);
 }
+
+async function getPlaylistTracks(playlistId) {
   const tracks = [];
   let url = `/playlists/${playlistId}/tracks?limit=100`;
   while (url) {
