@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Songspot — hear it, find it</title>
+    <title>Songspot</title>
     <meta
       name="description"
-      content="Songspot helps you catch the song in the room — search by vibe, lyric fragment, or that one bassline you cannot shake."
+      content="Log in with Spotify, pick an artist or playlist, and play Songless with your own music."
     />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -19,98 +19,17 @@
   <body>
     <div class="grain" aria-hidden="true"></div>
 
-    <header class="nav">
-      <a class="logo" href="#top">
-        <span class="logo-mark" aria-hidden="true"></span>
-        Songspot
-      </a>
-      <nav>
-        <a href="#listen">Listen</a>
-        <a href="#catalog">Catalog</a>
-        <a href="#how">How it works</a>
-      </nav>
-    </header>
+    <div id="app" class="app">
+      <p class="boot">Loading…</p>
+    </div>
 
-    <main id="top">
-      <section class="hero">
-        <p class="kicker">Late-night radio for the internet</p>
-        <h1>Name the song you almost remember.</h1>
-        <p class="lede">
-          Hum a line, drop a mood, or type the three words stuck in your head.
-          Songspot matches it to a track — then queues the next one in the same
-          weather.
-        </p>
-        <form class="search" id="search-form">
-          <label class="sr-only" for="query">Search songs</label>
-          <input
-            id="query"
-            name="query"
-            type="search"
-            placeholder="try “neon rain”, “slow horns”, or “midnight drive”"
-            autocomplete="off"
-          />
-          <button type="submit">Spot it</button>
-        </form>
-        <p class="hint" id="search-hint">12 tracks in the house catalog.</p>
-      </section>
-
-      <section class="now-playing" id="listen" aria-labelledby="now-title">
-        <div class="vinyl-wrap">
-          <div class="vinyl" id="vinyl" data-spinning="false">
-            <div class="vinyl-label">
-              <strong id="vinyl-title">Waiting</strong>
-              <span id="vinyl-artist">drop a search</span>
-            </div>
-          </div>
-        </div>
-        <div class="now-copy">
-          <p class="kicker">Now spinning</p>
-          <h2 id="now-title">Nothing on the platter yet</h2>
-          <p id="now-meta">Search a vibe or pick a track from the catalog.</p>
-          <div class="player">
-            <button type="button" id="play-btn" disabled>Play</button>
-            <div class="progress" aria-hidden="true">
-              <span id="progress-bar"></span>
-            </div>
-            <span class="time" id="time-label">0:00</span>
-          </div>
-        </div>
-      </section>
-
-      <section class="catalog" id="catalog">
-        <div class="section-head">
-          <h2>House catalog</h2>
-          <p>Fictional cuts, real moods. Click any row to cue it up.</p>
-        </div>
-        <ul class="track-list" id="track-list"></ul>
-      </section>
-
-      <section class="how" id="how">
-        <h2>Three steps, no guesswork</h2>
-        <ol>
-          <li>
-            <strong>Catch it</strong>
-            Type a lyric scrap, a feeling, or a scene — rain on glass, 2am taxi,
-            brass that aches.
-          </li>
-          <li>
-            <strong>Spot it</strong>
-            We rank the catalog by mood tags and title matches, then drop the
-            best hit on the platter.
-          </li>
-          <li>
-            <strong>Stay in it</strong>
-            Keep browsing the same weather. Every track carries a room, a tempo,
-            and a color.
-          </li>
-        </ol>
-      </section>
-    </main>
-
-    <footer>
-      <p>Songspot · a listening room, not a streaming empire.</p>
-    </footer>
-
+    <script>
+      window.__spotifySdkReady = new Promise((resolve) => {
+        window.onSpotifyWebPlaybackSDKReady = resolve;
+      });
+    </script>
+    <script src="https://sdk.scdn.co/spotify-player.js"></script>
+    <script src="spotify.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
